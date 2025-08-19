@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-task_reporter}
+      POSTGRES_USER: ${DB_USER:-tg_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-tg_pass}
+    ports:
+      - ${DB_PORT:-5432}:5432
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+volumes:
+  dbdata:

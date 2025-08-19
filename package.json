@@ -1,0 +1,23 @@
+{
+  "name": "tg-task-reporter-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node src/main.js",
+    "start": "NODE_ENV=production node src/index.js",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down -v"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.11.0",
+    "dayjs": "^1.11.13",
+    "dotenv": "^17.2.1",
+    "node-telegram-bot-api": "^0.66.0",
+    "pg": "^8.16.3"
+  }
+}
