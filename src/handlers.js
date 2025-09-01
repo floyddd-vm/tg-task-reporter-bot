@@ -1,9 +1,10 @@
-import { getMenuKeyboard, REMARK_TYPE_LIST, LOCATION_LIST, START_MESSAGE,SKIP, LOGIN_MESSAGE, getListKayArray } from './constants.js';
+import { getMenuKeyboard, REMARK_TYPE_LIST, LOCATION_LIST, START_MESSAGE,SKIP, LOGIN_MESSAGE, ACCEPT, CLEAR, getListKayArray, getKeyByValue } from './constants.js';
 import fs from 'fs';
-import  { sendToBitrix24 }from './bitrix.js';
-import { getUserById, addUser, setUserMenuLevel, updateUsername, setUserLoginFullName, setUserData, clearUserData, createTaskRecord, setTaskBitrixId } from "./db.js";
+import  { sendToBitrix24, getTaskById }from './bitrix.js';
+import { getUserById, addUser, setUserMenuLevel, updateUsername, setUserLoginFullName, setUserData, clearUserData, createTaskRecord, setTaskBitrixId, getTaskByAddress, closeTask } from "./db.js";
 import { convertImageToBase64 } from './image.js';
 import { convertDate } from './utils.js';
+import { validateAuto } from './validation.js';
 
 
 
@@ -64,6 +65,9 @@ export async function handleRemarkCreation(bot, chatId, msg, user) {
       await setPhoto(bot, chatId, msg);
       break;
     case 6:
+      await acceptTask(bot, chatId, msg);
+      break;
+    case 7:
       await addTask(bot, chatId);
       break;
     default:
@@ -98,12 +102,30 @@ async function writeAddress(bot, chatId) {
 
 async function setAddress(bot, chatId, msg) {
   const addressStr = msg.text;
-  //TODO: распознать адрес
-  if(addressStr) {
-    await setUserData(chatId, { address: addressStr });
+  const user = await getUserById(chatId);
+  const res = validateAuto(addressStr, getKeyByValue(LOCATION_LIST, user.data.location));
+  if(res.ok) {
+    //check open task
+    const task = await getTaskByAddress(res.normalized);
+    if(task) {
+
+      const resp = await getTaskById(task.bitrix_id);
+      const stageId = resp?.result?.item?.stageId;
+      const [, status] = stageId.split(':');
+
+      if( status === 'SUCCESS') {
+        await closeTask(task.id);
+      } else {
+        await bot.sendMessage(chatId, "⚠️ У вас уже есть задача на эту ячейку. Пожалуйста, проверьте её и попробуйте снова.");
+        await selectLocation(bot, chatId);
+        return;
+      }
+    }
+
+    await setUserData(chatId, { address: res.normalized });
     await selectRemarkType(bot, chatId);
   }else{
-    bot.sendMessage(chatId, "Не удалось распознать адрес ячейки'");
+    bot.sendMessage(chatId, "❓ Не удалось распознать адрес ячейки'");
     await writeAddress(bot, chatId)
   }
 }
@@ -144,7 +166,7 @@ async function setCargoId(bot, chatId, msg) {
 
 async function sendPhoto(bot, chatId) {
   await setUserMenuLevel(chatId, 5);
-  bot.sendMessage(chatId, `Пришлите фото или нажмите клавишу '${SKIP}'`, getMenuKeyboard([SKIP], true));
+  bot.sendMessage(chatId, `Пришлите фото и/или комментарий\nМожно пропустить, тогда нажмите клавишу '${SKIP}'`, getMenuKeyboard([SKIP], true));
 }
 
 async function setPhoto(bot, chatId, msg) {
@@ -159,12 +181,33 @@ async function setPhoto(bot, chatId, msg) {
       });
     }
 
-    await setUserData(chatId, { photoBase64, comment });
-    await addTask(bot, chatId);
+    await setUserData(chatId, { photoBase64, comment : comment === SKIP ? '' : comment });
+    await checkTask(bot, chatId);
   }catch(error){
     console.log(error);
     bot.sendMessage(chatId, "Ошибка при распознавании фото'");
     await sendPhoto(bot, chatId)
+  }
+}
+
+async function checkTask(bot, chatId) {
+  await setUserMenuLevel(chatId, 6);
+  const user = await getUserById(chatId);
+  bot.sendMessage(chatId, `Подтвердите введенные данные:
+  - площадка: ${getKeyByValue(LOCATION_LIST, user?.data?.location)}
+  - адрес: ${user?.data?.address}
+  - тип замечания: ${getKeyByValue(REMARK_TYPE_LIST, user?.data?.remarkType)}
+  - id груза: ${user?.data?.cargoId}
+  - комментарий: ${user?.data?.comment}`, getMenuKeyboard([ACCEPT, CLEAR], true));
+}
+
+async function acceptTask(bot, chatId, msg) {
+  if (msg.text === ACCEPT) {
+    await addTask(bot, chatId);
+  } else if (msg.text === CLEAR) {
+    selectLocation(bot, chatId);
+  } else {
+    bot.sendMessage(chatId, "Не удалось распознать команду'");
   }
 }
 
@@ -187,10 +230,10 @@ async function addTask(bot, chatId) {
     );
 
     await setTaskBitrixId(task.id, responseData?.result?.item?.id);
-    await bot.sendMessage(chatId, "Задача успешно добавлена");
+    await bot.sendMessage(chatId, "✅ Задача успешно добавлена");
   } catch (error) {
     console.log(error);
-    await bot.sendMessage(chatId, "Ошибка при добавлении задачи");
+    await bot.sendMessage(chatId, "❌ Ошибка при добавлении задачи");
   }
 
   await selectLocation(bot, chatId);
@@ -207,11 +250,11 @@ async function setlogin(bot, chatId, msg) {
     console.log({ login, fullName });
 
     await setUserLoginFullName(chatId, login, fullName);
-    await bot.sendMessage(chatId, "Вы успешно добавили информацию о себе.");
+    await bot.sendMessage(chatId, "📝 Вы успешно добавили информацию о себе.");
     //переходим на первый шаг
     await selectLocation(bot, chatId)
   } else {
-    bot.sendMessage(chatId, "Неудалось распознать символ и имя сотрудника. Пожалуйста, введите их в формате 'EVM Ефремов Виктор Михайлович'");
+    bot.sendMessage(chatId, "🫵 Неудалось распознать символ и имя сотрудника. Пожалуйста, введите их в формате 'EVM Ефремов Виктор Михайлович'");
   }
 }
 

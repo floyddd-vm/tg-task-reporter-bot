@@ -10,6 +10,9 @@ export const LOGIN_MESSAGE = `
 `;
 
 export const SKIP = `Пропустить`;
+export const ACCEPT = `Подтвердить`;
+export const CLEAR = `Начать заново`;
+
 
 ///crm.item.fields?entityTypeId=1102
 export const REMARK_TYPE_LIST ={
@@ -25,6 +28,11 @@ export const LOCATION_LIST = {
     "К8": 230,
     "ТАРА": 231,
 }
+
+export const getKeyByValue = (obj, value) => {
+  return Object.keys(obj).find(key => obj[key] === value);
+}
+
 //how conver LOCATION_LIST to kay array
 export const getListKayArray = (data) => {
   return Object.keys(data).map(key => key);

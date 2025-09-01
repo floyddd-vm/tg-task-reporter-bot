@@ -45,3 +45,19 @@ import axios from 'axios';
             console.error('Ошибка при добавлении задачи:', error);
         }
     };
+
+    export const getTaskById = async (id) => {
+        // Здесь происходит запрос к Битрикс24 для получения информации о задаче
+        const url = process.env.BITRIX24_WEBHOOK_URL + '/crm.item.get';
+        const fields = {
+            id,
+        };
+        const entityTypeId = 1102;
+        try {
+            const response = await axios.post(url, {id, entityTypeId});
+            console.log('Задача найдена', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Ошибка при получении задачи:', error);
+        }
+    };

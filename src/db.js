@@ -119,3 +119,24 @@ export async function setTaskBitrixId(id, bitrixId) {
   );
   return rows[0];
 }
+
+export async function getTaskByAddress(address) {
+  const { rows } = await pool.query(
+    `
+    SELECT * FROM tasks WHERE address = $1
+    `,
+    [address]
+  );
+  return rows[0] ?? null;
+}
+
+export async function closeTask(id) {
+  const { rows } = await pool.query(
+    `
+    UPDATE tasks SET active = FALSE
+    WHERE id = $1
+    `,
+    [id]
+  );
+  return rows[0];
+}
